@@ -55,15 +55,14 @@ for intent_name, intent_text in INTENTS.items():
     keywords = set(preprocess(intent_text).split())
     intent_keywords[intent_name] = keywords
 
-def calculate_confidence(matched_keywords, total_keywords):
+def calculate_confidence(matched_count):
     """
-    Calculate confidence based on keyword match ratio.
+    Calculate confidence based on keyword match count.
     """
-    if total_keywords == 0:
+    if matched_count == 0:
         return 0.0
     
-    ratio = matched_keywords / total_keywords
-    confidence = ratio * 0.99
+    confidence = min(0.99, matched_count * 0.25)
     return round(confidence, 2)
 
 
@@ -81,19 +80,16 @@ def classify_intent(user_text):
     user_words = set(cleaned_text.split())
     
     best_intent = "payroll"
-    best_matches = 0
-    best_total = 1
+    best_matched = 0
     
     for intent_name, keywords in intent_keywords.items():
         matched = len(user_words & keywords)
-        total = len(keywords)
         
-        if matched > best_matches:
-            best_matches = matched
-            best_total = total
+        if matched > best_matched:
+            best_matched = matched
             best_intent = intent_name
     
-    confidence = calculate_confidence(best_matches, best_total)
+    confidence = calculate_confidence(best_matched)
 
     return {
         "intent": best_intent,
