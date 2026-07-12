@@ -1,9 +1,6 @@
 import re
 import json
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-
 INTENTS = {
     "leave": """
         leave annual leave casual leave sick leave medical leave
@@ -43,13 +40,6 @@ INTENTS = {
     """
 }
 
-intent_names = list(INTENTS.keys())
-intent_texts = list(INTENTS.values())
-
-vectorizer = TfidfVectorizer()
-
-intent_vectors = vectorizer.fit_transform(intent_texts)
-
 def preprocess(text):
     text = text.lower()
 
@@ -59,15 +49,21 @@ def preprocess(text):
 
     return text
 
-def calculate_confidence(best_score):
+# Preprocess intents into keyword sets
+intent_keywords = {}
+for intent_name, intent_text in INTENTS.items():
+    keywords = set(preprocess(intent_text).split())
+    intent_keywords[intent_name] = keywords
+
+def calculate_confidence(matched_keywords, total_keywords):
     """
-    Convert cosine similarity into a user-friendly confidence score.
+    Calculate confidence based on keyword match ratio.
     """
-
-    confidence = 0.5 + (best_score * 0.5)
-
-    confidence = max(0.50, min(confidence, 0.99))
-
+    if total_keywords == 0:
+        return 0.0
+    
+    ratio = matched_keywords / total_keywords
+    confidence = ratio * 0.99
     return round(confidence, 2)
 
 
@@ -82,20 +78,22 @@ def classify_intent(user_text):
             "confidence": 0.50
         }
 
-    query_vector = vectorizer.transform([cleaned_text])
-
-    similarities = cosine_similarity(
-        query_vector,
-        intent_vectors
-    )[0]
-
-    best_index = similarities.argmax()
-
-    best_intent = intent_names[best_index]
-
-    best_score = similarities[best_index]
-
-    confidence = calculate_confidence(best_score)
+    user_words = set(cleaned_text.split())
+    
+    best_intent = "payroll"
+    best_matches = 0
+    best_total = 1
+    
+    for intent_name, keywords in intent_keywords.items():
+        matched = len(user_words & keywords)
+        total = len(keywords)
+        
+        if matched > best_matches:
+            best_matches = matched
+            best_total = total
+            best_intent = intent_name
+    
+    confidence = calculate_confidence(best_matches, best_total)
 
     return {
         "intent": best_intent,
